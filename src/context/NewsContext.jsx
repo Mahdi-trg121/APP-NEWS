@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { newsData } from '../data/newsData';
+import { ThumbsUp, ThumbsDown } from 'lucide-react';
 
 const NewsContext = createContext();
 
 export const useNews = () => useContext(NewsContext);
 
 export const NewsProvider = ({ children }) => {
-  // استخدام useRef لحفظ موضع التمرير
   const containerRef = useRef(null);
 
   // تهيئة الحالات مع localStorage
@@ -14,11 +14,13 @@ export const NewsProvider = ({ children }) => {
     const savedArticles = localStorage.getItem('newsArticles');
     const initialArticles = savedArticles ? JSON.parse(savedArticles) : newsData;
     
-    // تحميل حالة الإعجاب لكل مقال من localStorage
     return initialArticles.map(article => ({
       ...article,
       isLiked: localStorage.getItem(`liked_${article.id}`) === 'true',
-      likes: parseInt(localStorage.getItem(`likes_${article.id}`)) || article.likes || 0
+      isDisliked: localStorage.getItem(`disliked_${article.id}`) === 'true',
+      likes: parseInt(localStorage.getItem(`likes_${article.id}`)) || article.likes || 0,
+      dislikes: parseInt(localStorage.getItem(`dislikes_${article.id}`)) || article.dislikes || 0,
+      comments: article.comments || []
     }));
   });
 
@@ -32,7 +34,6 @@ export const NewsProvider = ({ children }) => {
     return savedMode ? JSON.parse(savedMode) : false;
   });
 
-  // حفظ التغييرات في localStorage
   useEffect(() => {
     localStorage.setItem('newsArticles', JSON.stringify(articles));
   }, [articles]);
@@ -46,44 +47,66 @@ export const NewsProvider = ({ children }) => {
     document.documentElement.classList.toggle('dark', darkMode);
   }, [darkMode]);
 
-  // دالة الإعجاب المعدلة
   const likeArticle = useCallback((id) => {
     const scrollTop = containerRef.current?.scrollTop;
     
     setArticles(prev => prev.map(article => {
       if (article.id === id) {
-        const newLikeStatus = !article.isLiked;
-        const newLikes = newLikeStatus ? (article.likes + 1) : (article.likes - 1);
+        // إذا كان معجبًا بالفعل، لا تفعل شيئًا
+        if (article.isLiked) return article;
         
-        // حفظ في localStorage لكل مقال
-        localStorage.setItem(`liked_${id}`, newLikeStatus.toString());
+        const newLikeStatus = true;
+        const newLikes = article.likes + 1;
+        
+        // إذا كان قد أبدى عدم إعجاب سابقًا، نزيله
+        const newDislikes = article.isDisliked ? Math.max(0, article.dislikes - 1) : article.dislikes;
+        
+        localStorage.setItem(`liked_${id}`, 'true');
         localStorage.setItem(`likes_${id}`, newLikes.toString());
+        localStorage.setItem(`disliked_${id}`, 'false');
+        localStorage.setItem(`dislikes_${id}`, newDislikes.toString());
         
         return {
           ...article,
           likes: newLikes,
-          isLiked: newLikeStatus
+          dislikes: newDislikes,
+          isLiked: newLikeStatus,
+          isDisliked: false
         };
       }
       return article;
     }));
     
-    // استعادة موضع التمرير بعد التحديث
     setTimeout(() => {
       if (containerRef.current) containerRef.current.scrollTop = scrollTop;
     }, 0);
   }, []);
 
-  // دالة عدم الإعجاب المعدلة
   const dislikeArticle = useCallback((id) => {
     const scrollTop = containerRef.current?.scrollTop;
     
     setArticles(prev => prev.map(article => {
       if (article.id === id) {
-        const newDislikes = (article.dislikes || 0) + 1;
+        // إذا كان غير معجب بالفعل، لا تفعل شيئًا
+        if (article.isDisliked) return article;
+        
+        const newDislikeStatus = true;
+        const newDislikes = article.dislikes + 1;
+        
+        // إذا كان قد أعجب سابقًا، نزيل الإعجاب
+        const newLikes = article.isLiked ? Math.max(0, article.likes - 1) : article.likes;
+        
+        localStorage.setItem(`disliked_${id}`, 'true');
+        localStorage.setItem(`dislikes_${id}`, newDislikes.toString());
+        localStorage.setItem(`liked_${id}`, 'false');
+        localStorage.setItem(`likes_${id}`, newLikes.toString());
+        
         return {
           ...article,
-          dislikes: newDislikes
+          likes: newLikes,
+          dislikes: newDislikes,
+          isLiked: false,
+          isDisliked: newDislikeStatus
         };
       }
       return article;
@@ -94,7 +117,6 @@ export const NewsProvider = ({ children }) => {
     }, 0);
   }, []);
 
-  // دالة إضافة تعليق معدلة
   const addComment = useCallback((articleId, text) => {
     const scrollTop = containerRef.current?.scrollTop;
     
@@ -121,7 +143,6 @@ export const NewsProvider = ({ children }) => {
     }, 0);
   }, []);
 
-  // دوال العرض والوضع الداكن
   const viewArticle = useCallback((id) => {
     setViewedArticles((prev) => {
       const alreadyViewed = prev.some((item) => item.id === id);
@@ -146,7 +167,6 @@ export const NewsProvider = ({ children }) => {
     setDarkMode((prev) => !prev);
   }, []);
 
-  // دوال مساعدة
   const getArticlesByCategory = useCallback((category) => {
     if (!category || category === 'All') return articles;
     return articles.filter((article) => article.category === category);
@@ -183,4 +203,3 @@ export const NewsProvider = ({ children }) => {
     </div>
   );
 };
-
