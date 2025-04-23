@@ -19,7 +19,7 @@
 ## 🚀 بدء الاستخدام
 
 ```bash
-git clone https://github.com/Mahdi-trg121/react-news.git
+git clone https://github.com/Mahdi-trg121/APP-NEWS.git
 cd react-news
 npm install
 npm run dev
